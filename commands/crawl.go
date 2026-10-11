@@ -217,7 +217,7 @@ func Crawl(gameCollection, stateCollection *mongo.Collection, startFlag, endFlag
 		}
 
 		// Upsert the game into the Game document and throw an error if it fails
-		if err := database.UpsertGame(gameCollection, game); err != nil {
+		if err := database.UpsertGameData(gameCollection, game); err != nil {
 			slog.Error("Upsertion error",
 				"app_id", game.AppId,
 				"title", game.Title,
@@ -234,17 +234,14 @@ func Crawl(gameCollection, stateCollection *mongo.Collection, startFlag, endFlag
 		slog.Info("Visiting URL", "url", r.URL.String())
 	})
 
-	// Sleep to prevent rate limiting
-	c.OnResponse(func(r *colly.Response) {
+	// Colly sends non-2xx responses (including 429) to OnError, not
+	// OnResponse, so the rate-limit backoff lives here.
+	c.OnError(func(r *colly.Response, err error) {
+		slog.Error("Request error", "url", r.Request.URL.String(), "status", r.StatusCode, "error", err)
 		if r.StatusCode == 429 {
 			slog.Warn("Rate limited, backing off 5 minutes...")
 			time.Sleep(5 * time.Minute)
 		}
-	})
-
-	// Print out the error during scraping
-	c.OnError(func(r *colly.Response, err error) {
-		slog.Error("Request error", "url", r.Request.URL.String(), "status", r.StatusCode, "error", err)
 	})
 
 	ranged := startFlag > 0 || endFlag > 0
@@ -281,23 +278,15 @@ func Crawl(gameCollection, stateCollection *mongo.Collection, startFlag, endFlag
 		slog.Info("Ranged crawl: saved progress is not read or changed",
 			"start_page", startPage, "last_page", lastPage, "total_pages", totalPages)
 	} else {
-		// lastPage is the last page COMPLETED, so resume at last+1
-
-		// Load the current page and last page from the metadata
+		// last is the last page COMPLETED, so resume at last+1.
 		last, total, err := database.LoadMetadataState(stateCollection)
 		if err != nil {
 			slog.Error("Failed to load metadata", "error", err)
 			return
 		}
 
-		// The current page is at the last page, so renew the total
-		// page count.
-		//
-		// Otherwise, resume from the current state
 		if last >= total {
-			// No checkpoint yet, or the previous crawl finished: start a new cycle
-
-			// Renew the total page count
+			// No checkpoint yet, or the previous crawl finished: start a new cycle.
 			var totalPages int
 			parsePaginationData(&totalPages)
 			if totalPages == 0 {
@@ -305,20 +294,21 @@ func Crawl(gameCollection, stateCollection *mongo.Collection, startFlag, endFlag
 				return
 			}
 
-			// Initialize the crawl range and save it
-			startPage, lastPage = 1, totalPages
-			if err := database.SaveCrawlRange(stateCollection, startPage, totalPages); err != nil { // 0 = nothing done yet
+			// Save 0 as the last completed page: nothing is done yet in this cycle.
+			if err := database.SaveCrawlRange(stateCollection, 0, totalPages); err != nil {
 				slog.Error("Failed to save initial crawl range, aborting", "error", err)
 				return
 			}
+
+			startPage, lastPage = 1, totalPages
 			slog.Info("Starting new crawl cycle", "total_pages", totalPages)
 		} else {
-			startPage, lastPage = last, total
+			startPage, lastPage = last+1, total
 			slog.Info("Resuming crawl", "start_page", startPage, "last_page", lastPage)
 		}
 	}
 
-	// Visit every page from [startPage, lastPage]
+	// Visit every page in [startPage, lastPage]
 	for page := startPage; page <= lastPage; page++ {
 		// Visit the specified page
 		pagesAttempted++
@@ -327,6 +317,13 @@ func Crawl(gameCollection, stateCollection *mongo.Collection, startFlag, endFlag
 			slog.Error("Failed to visit", "url", url, "page", page, "error", err)
 			pagesFailed++
 			failedPages = append(failedPages, page)
+
+			if !ranged {
+				// The checkpoint means "everything up to here is done", so
+				// don't move past a failed page. The next run resumes at it.
+				slog.Warn("Stopping crawl at failed page", "page", page)
+				break
+			}
 			continue
 		}
 

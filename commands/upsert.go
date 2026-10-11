@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"game-price-tracker/myimplementations/types"
 	"log/slog"
+	"math"
+	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gocolly/colly"
@@ -184,6 +188,7 @@ func scrapeGame(appId int) (types.Game, error) {
 
 	c := colly.NewCollector(
 		colly.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
+		colly.AllowURLRevisit(), // needed so the page can be fetched again after the form
 	)
 	c.Limit(&colly.LimitRule{
 		DomainGlob:  "*store.steampowered.com*",
@@ -192,16 +197,104 @@ func scrapeGame(appId int) (types.Game, error) {
 	})
 	c.SetRequestTimeout(5 * time.Second)
 
+	// Skip Steam's age gate so mature-content pages can be scraped.
+	if err := setAgeCookies(c); err != nil {
+		return types.Game{}, fmt.Errorf("setting age cookies: %w", err)
+	}
+
 	var game types.Game
 	found := false
 
 	c.OnHTML("div#tabletGrid", func(e *colly.HTMLElement) {
-		game = types.Game{ /* appId, Title, URL, PriceSnapshot, PriceHistory */ }
+		// The first purchase option is the base game; later ones are
+		// editions, bundles and so on.
+		first := e.DOM.Find("div.game_area_purchase_game_wrapper").First()
+		if first.Length() == 0 {
+			slog.Warn("No purchase option found (unreleased or unavailable?)", "app_id", appId)
+		}
+
+		// Steam stores the final price in cents in data-price-final, on sale or
+		// not, so this doesn't depend on which class names the page uses.
+		// Free games have 0 here.
+		var discountPrice float64
+		raw := first.Find("[data-price-final]").First().AttrOr("data-price-final", "")
+		if cents, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			discountPrice = float64(cents) / 100
+		} else {
+			slog.Warn("Failed to read final price", "app_id", appId, "raw", raw, "error", err)
+		}
+
+		// data-discount is a positive percent and only exists on a discounted
+		// listing; 0 means not on sale.
+		pct, _ := strconv.ParseInt(first.Find("[data-discount]").First().AttrOr("data-discount", "0"), 10, 64)
+
+		// Not on sale: original equals final. On sale: read the struck-through
+		// price, falling back to working backwards from the percentage.
+		originalPrice := discountPrice
+		if pct > 0 {
+			if v, err := extractPrice(first.Find(".discount_original_price").Text()); err == nil {
+				originalPrice = v
+			} else {
+				originalPrice = math.Round(discountPrice/(1-float64(pct)/100)*100) / 100
+			}
+		}
+
+		// Stored as a negative percent (-50 means 50% off), as the display code expects.
+		price := types.PriceRecord{
+			OriginalPrice: originalPrice,
+			DiscountPrice: discountPrice,
+			Discount:      -pct,
+			CheckedAt:     time.Now(),
+		}
+		// Create a Game data storing
+		// - id
+		// - title
+		// - url
+		// - current price snapshot data
+		// - price history
+		game = types.Game{
+			AppId:         appId,
+			Title:         e.ChildText("div#appHubAppName"),
+			URL:           searchURL,
+			PriceSnapshot: price,
+			PriceHistory:  []types.PriceRecord{price},
+		}
 		found = true
 	})
+
 	c.OnRequest(func(r *colly.Request) {
 		slog.Info("Visiting URL", "url", r.URL.String())
 	})
+
+	retried := false
+
+	// Colly follows redirects, so the response URL shows where we ended up.
+	// An age-gated page redirects to /agecheck.
+	c.OnResponse(func(r *colly.Response) {
+		if !strings.Contains(r.Request.URL.Path, "/agecheck") || retried {
+			return
+		}
+		retried = true
+
+		err := c.Post(
+			fmt.Sprintf("https://store.steampowered.com/agecheckset/app/%d/", appId),
+			map[string]string{
+				"ageDay":   "1",
+				"ageMonth": "January",
+				"ageYear":  "1990",
+			},
+		)
+		if err != nil {
+			slog.Warn("Age check form failed", "app_id", appId, "error", err)
+			return
+		}
+		if err := c.Visit(searchURL); err != nil {
+			slog.Warn("Revisit after age check failed", "app_id", appId, "error", err)
+		}
+
+		slog.Info("Response", "app_id", appId, "url", r.Request.URL.String(), "status", r.StatusCode, "bytes", len(r.Body))
+	})
+
 	c.OnError(func(r *colly.Response, err error) {
 		slog.Error("Request error", "url", r.Request.URL.String(), "status", r.StatusCode, "error", err)
 		if r.StatusCode == 429 {
@@ -217,4 +310,18 @@ func scrapeGame(appId int) (types.Game, error) {
 		return types.Game{}, fmt.Errorf("game with app_id %d not found", appId)
 	}
 	return game, nil
+}
+
+// setAgeCookies tells Steam that the visitor has passed its age check and
+// wants mature content, so age-gated store pages load normally instead of
+// redirecting to /agecheck.
+//
+// birthtime is a Unix timestamp (here 1990-01-01), and lastagecheckage is
+// day-monthIndex-year, where January is month 0.
+func setAgeCookies(c *colly.Collector) error {
+	return c.SetCookies("https://store.steampowered.com", []*http.Cookie{
+		{Name: "birthtime", Value: "631152001", Path: "/"},
+		{Name: "lastagecheckage", Value: "1-0-1990", Path: "/"},
+		{Name: "wants_mature_content", Value: "1", Path: "/"},
+	})
 }

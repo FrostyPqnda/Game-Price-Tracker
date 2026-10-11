@@ -72,10 +72,10 @@ func ConnectMongoDB() (*mongo.Client, error) {
 	return client, nil
 }
 
-// upsertGame inserts a game and its price record into the Game document
+// UpsertGameData upserts a game and its price record into the Game document
 // if it does not exist. Otherwise, it will update the price history
 // if there has been a change, i.e., discount change or price change
-func UpsertGame(collection *mongo.Collection, g types.Game) error {
+func UpsertGameData(collection *mongo.Collection, g types.Game) error {
 	ctx := context.TODO()
 
 	// Search for the game inside the Game document using its
@@ -164,8 +164,19 @@ func UpsertGame(collection *mongo.Collection, g types.Game) error {
 	return err
 }
 
+// crawlStateId is the _id of the single document in the metadata collection
+// that stores the crawler's checkpoint. All three functions below read or
+// write that one document.
 const crawlStateId = "steam_crawl"
 
+// LoadMetadataState reads the saved crawl checkpoint from collection and
+// returns the last page that was crawled and the total number of pages.
+//
+// If no checkpoint has been saved yet, it returns 0, 0 and a nil error, so
+// callers should treat a zero last page as "start from the beginning". Any
+// other failure is logged and returned.
+//
+// The lookup has no timeout.
 func LoadMetadataState(collection *mongo.Collection) (int, int, error) {
 	ctx := context.TODO()
 
@@ -175,6 +186,7 @@ func LoadMetadataState(collection *mongo.Collection) (int, int, error) {
 		bson.M{"_id": crawlStateId},
 	).Decode(&state)
 
+	// A missing document is the normal first-run case, not an error.
 	if err == mongo.ErrNoDocuments {
 		slog.Info("No existing crawl checkpoint found, starting from page 1")
 		return 0, 0, nil
@@ -189,7 +201,15 @@ func LoadMetadataState(collection *mongo.Collection) (int, int, error) {
 	return state.LastPage, state.TotalPages, nil
 }
 
+// SaveCrawlRange stores page as the last crawled page and totalPages as the
+// total page count in the crawl checkpoint document, and records the update
+// time. The document is created if it doesn't exist.
+//
+// Use it when the total page count is known or has changed; use
+// SaveCurrentCrawl to advance only the page number. It returns any database
+// error after logging it. The update has no timeout.
 func SaveCrawlRange(collection *mongo.Collection, page, totalPages int) error {
+	// TODO context: no deadline, so a hung database connection blocks forever.
 	ctx := context.TODO()
 
 	set := bson.M{
@@ -198,6 +218,8 @@ func SaveCrawlRange(collection *mongo.Collection, page, totalPages int) error {
 		"updated_at":  time.Now(),
 	}
 
+	// $set only touches the listed fields, and SetUpsert(true) creates the
+	// document on the first save.
 	_, err := collection.UpdateOne(
 		ctx,
 		bson.M{"_id": crawlStateId},
@@ -212,11 +234,20 @@ func SaveCrawlRange(collection *mongo.Collection, page, totalPages int) error {
 	return err
 }
 
+// SaveCurrentCrawl stores page as the last crawled page in the crawl
+// checkpoint document and records the update time, leaving the saved total
+// page count untouched. The document is created if it doesn't exist.
+//
+// It is the lightweight checkpoint to call after each page is crawled. It
+// returns any database error after logging it. The update has no timeout.
 func SaveCurrentCrawl(collection *mongo.Collection, page int) error {
+	// TODO context: no deadline, so a hung database connection blocks forever.
 	ctx := context.TODO()
 
 	set := bson.M{"last_page": page, "updated_at": time.Now()}
 
+	// Because only last_page and updated_at are set, total_pages keeps
+	// whatever SaveCrawlRange stored earlier.
 	_, err := collection.UpdateOne(
 		ctx,
 		bson.M{"_id": crawlStateId},
