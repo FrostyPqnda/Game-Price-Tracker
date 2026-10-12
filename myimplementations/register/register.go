@@ -13,7 +13,7 @@ import (
 // Steam app IDs are always positive, so zero (the unset value) and negative
 // numbers are both rejected.
 func requireID(o types.Options) error {
-	if o.ID <= 0 {
+	if o.Id <= 0 {
 		return errors.New("missing or invalid -id")
 	}
 	return nil
@@ -59,21 +59,21 @@ func LoadRegisters() map[string]types.Command {
 			if err := requireID(o); err != nil {
 				return err
 			}
-			commands.SearchLowestPrice(a.Games, o.ID)
+			commands.SearchLowestPrice(a.Games, o.Id)
 			return nil
 		},
 		"history": func(a *types.App, o types.Options) error {
 			if err := requireID(o); err != nil {
 				return err
 			}
-			commands.PriceHistory(a.Games, o.ID)
+			commands.PriceHistory(a.Games, o.Id)
 			return nil
 		},
 		"upsert": func(a *types.App, o types.Options) error {
 			if err := requireID(o); err != nil {
 				return err
 			}
-			game, err := commands.UpsertGame(a.Games, o.ID)
+			game, err := commands.UpsertGame(a.Games, o.Id)
 			if err != nil {
 				return err
 			}

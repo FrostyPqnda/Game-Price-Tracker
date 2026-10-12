@@ -35,7 +35,7 @@ type Game struct {
 // Metadata is the crawler's saved checkpoint. A single document with the
 // _id "steam_crawl" is kept in the state collection.
 type Metadata struct {
-	ID         string    `bson:"_id"`
+	Id         string    `bson:"_id"`
 	LastPage   int       `bson:"last_page"`
 	TotalPages int       `bson:"total_pages"`
 	UpdatedAt  time.Time `bson:"updated_at"`
@@ -43,18 +43,27 @@ type Metadata struct {
 
 // App holds the shared dependencies that commands run against.
 type App struct {
-	Games *mongo.Collection
-	State *mongo.Collection
+	Games   *mongo.Collection
+	State   *mongo.Collection
+	Watches *mongo.Collection
 }
 
 // Options holds the parsed command-line flags. A zero value means the flag
 // was not provided, so commands that need a value (such as ID) must check it.
 type Options struct {
-	ID        int    // -id: the app ID for single-game commands
+	Id        int    // -id: the app ID for single-game commands
 	Page      int    // -page: the page number for records
 	Filter    string // -filter: a filter spec, see ParseFilter
 	StartPage int    // -startPage: first page of a ranged crawl
 	EndPage   int    // -endPage: last page of a ranged crawl
+}
+
+type Watch struct {
+	UserId            string    `bson:"user_id"`
+	ChannelId         string    `bson:"channel_id"`
+	AppId             int       `bson:"app_id"`
+	LastNotifiedPrice float64   `bson:"last_notified_price"`
+	CreatedAt         time.Time `bson:"created_at"`
 }
 
 // Command is the signature every CLI command implements. It receives the

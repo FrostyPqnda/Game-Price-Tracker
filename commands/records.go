@@ -57,7 +57,7 @@ func DisplayRecords(collection *mongo.Collection, page int, filter bson.M) {
 	// Sort is required for stable pagination: without it, skip/limit can
 	// return overlapping or missing documents between pages.
 	opts := options.Find().
-		SetSort(bson.D{{Key: "app_id", Value: 1}}).
+		SetSort(bson.D{{Key: "_id", Value: 1}}).
 		SetLimit(pageSize).
 		SetSkip(skip)
 
