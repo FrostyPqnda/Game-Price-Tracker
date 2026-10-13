@@ -64,6 +64,9 @@ type Watch struct {
 	AppId             int       `bson:"app_id"`
 	LastNotifiedPrice float64   `bson:"last_notified_price"`
 	CreatedAt         time.Time `bson:"created_at"`
+	IntervalAmount    int64     `bson:"interval_amount"`
+	IntervalUnit      string    `bson:"interval_unit"` // minute, day, week, month
+	NextCheckAt       time.Time `bson:"next_check_at"`
 }
 
 // Command is the signature every CLI command implements. It receives the
