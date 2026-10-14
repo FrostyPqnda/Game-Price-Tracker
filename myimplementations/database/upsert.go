@@ -1,4 +1,4 @@
-package commands
+package database
 
 import (
 	"context"
@@ -17,6 +17,42 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// extractPercent parses a percentage such as "25%" and returns its
+// integer value without the percent sign (25)
+//
+// Leading and trailing whitespaces are ignored, as is the whitespace
+// between the number and the "%".
+//
+// The number must be a base-10 integer. The result is not range-checked,
+// so values such as "150%" and "-5%" are returned as is.
+//
+// It returns an error if s does not end with "%", or if the remaining
+// text is not a valid int64
+func extractPercent(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if !strings.HasSuffix(s, "%") {
+		return 0, fmt.Errorf("not a percent: %q", s)
+	}
+	s = strings.TrimSpace(strings.TrimSuffix(s, "%"))
+	return strconv.ParseInt(s, 10, 64)
+}
+
+// extractPrice parses the price such as "9.99" and returns it
+//
+// Leading and trailing whitespaces are ignored, as is the whitespace
+// between the number and the "$".
+//
+// It returns an error if s does not start with "$"", or if the remaining
+// text is not a valid float64
+func extractPrice(s string) (float64, error) {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "$") {
+		return 0, fmt.Errorf("not a price: %q", s)
+	}
+	s = strings.TrimSpace(strings.TrimPrefix(s, "$"))
+	return strconv.ParseFloat(s, 64)
+}
+
 // UpsertGame makes sure the game with the given appId is stored in collection,
 // and returns the resulting game.
 //
@@ -28,8 +64,6 @@ import (
 // The collection must contain documents decodable into types.Game, keyed by
 // _id. The lookup has no timeout.
 func UpsertGame(collection *mongo.Collection, appId int) (types.Game, error) {
-	ctx := context.TODO()
-
 	slog.Info("Running UpsertGame", "appId", appId)
 
 	// Search for the game inside the Game document using its
@@ -37,16 +71,12 @@ func UpsertGame(collection *mongo.Collection, appId int) (types.Game, error) {
 	//
 	// If it does not exists, insert into the document
 	// and return the error if there was one.
-	var existing types.Game
-	err := collection.FindOne(
-		ctx,
-		bson.M{"_id": appId},
-	).Decode(&existing)
+	_, ok := FetchGame(collection, appId)
 
 	slog.Info("UpsertGame completed", "appId", appId)
 
 	// Game does not exists
-	if err == mongo.ErrNoDocuments {
+	if !ok {
 		return insertGame(collection, appId)
 	} else {
 		return updateGame(collection, appId)

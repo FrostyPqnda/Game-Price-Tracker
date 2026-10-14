@@ -32,30 +32,11 @@ type Game struct {
 	PriceHistory  []PriceRecord `bson:"price_history" json:"price_history"`   // The game's price history over time
 }
 
-// Metadata is the crawler's saved checkpoint. A single document with the
-// _id "steam_crawl" is kept in the state collection.
-type Metadata struct {
-	Id         string    `bson:"_id"`
-	LastPage   int       `bson:"last_page"`
-	TotalPages int       `bson:"total_pages"`
-	UpdatedAt  time.Time `bson:"updated_at"`
-}
-
 // App holds the shared dependencies that commands run against.
 type App struct {
 	Games   *mongo.Collection
 	State   *mongo.Collection
 	Watches *mongo.Collection
-}
-
-// Options holds the parsed command-line flags. A zero value means the flag
-// was not provided, so commands that need a value (such as ID) must check it.
-type Options struct {
-	Id        int    // -id: the app ID for single-game commands
-	Page      int    // -page: the page number for records
-	Filter    string // -filter: a filter spec, see ParseFilter
-	StartPage int    // -startPage: first page of a ranged crawl
-	EndPage   int    // -endPage: last page of a ranged crawl
 }
 
 type Watch struct {
@@ -68,8 +49,3 @@ type Watch struct {
 	IntervalUnit      string    `bson:"interval_unit"` // minute, day, week, month
 	NextCheckAt       time.Time `bson:"next_check_at"`
 }
-
-// Command is the signature every CLI command implements. It receives the
-// shared App and the parsed Options, and returns an error if the options are
-// invalid or the command fails.
-type Command func(app *App, opts Options) error

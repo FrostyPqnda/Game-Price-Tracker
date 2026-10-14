@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"game-price-tracker/bot"
 	"game-price-tracker/myimplementations/database"
-	"game-price-tracker/myimplementations/filter"
 	"game-price-tracker/myimplementations/logging"
-	"game-price-tracker/myimplementations/register"
 	"game-price-tracker/myimplementations/types"
 
 	"github.com/joho/godotenv"
@@ -30,14 +27,6 @@ func main() {
 }
 
 func run() error {
-	command := flag.String("command", "", "command to run (deals, stats, records, lowest, history, upsert, search, crawl); omit to start the Discord bot")
-	id := flag.Int("id", 0, "Steam app ID")
-	page := flag.Int("page", 1, "page number")
-	filterFlag := flag.String("filter", "", "filter records: "+filter.FilterHelp)
-	startPage := flag.Int("startPage", 0, "crawl: first results page (omit to resume)")
-	endPage := flag.Int("endPage", 0, "crawl: last results page (0 = until results run out)")
-	flag.Parse()
-
 	logFile, err := logging.SetupLogging("tracker")
 	if err != nil {
 		return err
@@ -61,25 +50,12 @@ func run() error {
 		Watches: db.Collection("watches"),
 	}
 
-	// No -command: run the Discord bot (blocks until Ctrl+C).
-	if *command == "" {
-		token := os.Getenv("DISCORD_TOKEN_ID")
-		if token == "" {
-			return fmt.Errorf("DISCORD_TOKEN_ID environment variable not set")
-		}
-		bot.BotToken = token
-		slog.Info("Starting Discord bot")
-		bot.Run(app)
-		return nil
+	token := os.Getenv("DISCORD_TOKEN_ID")
+	if token == "" {
+		return fmt.Errorf("DISCORD_TOKEN_ID environment variable not set")
 	}
-
-	// -command given: run the CLI command as before.
-	cmd, ok := register.LoadRegisters()[*command]
-	if !ok {
-		return fmt.Errorf("unknown command %q", *command)
-	}
-
-	slog.Info("Starting game price tracker", "command", *command)
-	options := types.Options{Id: *id, Page: *page, Filter: *filterFlag, StartPage: *startPage, EndPage: *endPage}
-	return cmd(app, options)
+	bot.BotToken = token
+	slog.Info("Starting Discord bot")
+	bot.Run(app)
+	return nil
 }

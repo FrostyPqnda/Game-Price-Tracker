@@ -6,8 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	command "game-price-tracker/commands"
+	"game-price-tracker/myimplementations/database"
 	"game-price-tracker/myimplementations/types"
+	"game-price-tracker/myimplementations/utils"
 
 	"github.com/bwmarrin/discordgo"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -49,7 +50,7 @@ func checkWatches(app *types.App, s *discordgo.Session) {
 	}
 	var watches []types.Watch
 	if err := cur.All(ctx, &watches); err != nil {
-		slog.Error("watch decode failed", "error", err)
+		slog.Error("Watch decode failed", "error", err)
 		return
 	}
 
@@ -59,7 +60,7 @@ func checkWatches(app *types.App, s *discordgo.Session) {
 	for _, w := range watches {
 		game, ok := refreshed[w.AppId]
 		if !ok {
-			game, err = command.UpsertGame(app.Games, w.AppId)
+			game, err = database.UpsertGame(app.Games, w.AppId)
 			if err != nil {
 				slog.Error("refresh failed", "appId", w.AppId, "error", err)
 				continue
@@ -76,7 +77,7 @@ func checkWatches(app *types.App, s *discordgo.Session) {
 				AllowedMentions: &discordgo.MessageAllowedMentions{Users: []string{w.UserId}},
 			})
 			if err != nil {
-				slog.Error("notify failed", "user", w.UserId, "error", err)
+				slog.Error("Notify failed", "user", w.UserId, "error", err)
 				continue
 			}
 		}
@@ -86,7 +87,7 @@ func checkWatches(app *types.App, s *discordgo.Session) {
 			bson.M{"user_id": w.UserId, "app_id": w.AppId},
 			bson.M{"$set": bson.M{
 				"last_notified_price": price,
-				"next_check_at":       nextCheck(now, w.IntervalAmount, w.IntervalUnit),
+				"next_check_at":       utils.NextCheck(now, w.IntervalAmount, w.IntervalUnit),
 			}},
 		)
 		if err != nil {
