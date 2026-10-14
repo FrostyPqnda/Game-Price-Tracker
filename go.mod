@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/NimbleMarkets/ntcharts v0.5.1
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/gocolly/colly v1.2.0
 	github.com/jedib0t/go-pretty/v6 v6.8.3
@@ -42,7 +43,6 @@ require (
 	github.com/antchfx/htmlquery v1.3.6 // indirect
 	github.com/antchfx/xmlquery v1.5.1 // indirect
 	github.com/antchfx/xpath v1.3.8 // indirect
-	github.com/bwmarrin/discordgo v0.29.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
