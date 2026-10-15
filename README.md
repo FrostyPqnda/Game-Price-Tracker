@@ -1,32 +1,88 @@
 # Steam Price Tracker
 
-A command-line tool that scrapes the Steam store, records game prices in MongoDB, and tracks how they change over time.
+A self-hosted Discord bot that tracks Steam game prices. Tell it which games to watch and how often to check, and it pings you when a price drops. Prices and watches are stored in MongoDB.
 
 > This project is an independent, unofficial Steam price tracker and is not affiliated with or endorsed by Valve Corporation.
 
 ## Features
 
-- Crawls the Steam store and stores a price snapshot for every paid game
-- Keeps a full price history per game
-- Paginated, filterable game listings in a readable table
-- Stats on tracked games, discounts and all-time lows
-- Terminal price-history chart for any game
+- Track any Steam game by its app ID with `/track`
+- Choose how often each game is checked (every X minutes, hours, days, weeks or months)
+- Get a Discord mention when a tracked game's price drops
+- Keep a price history per game
+- View and manage your tracked games with `/watchlist` and `/untrack`
 
-For simplicity, only paid games are scraped, since free-to-play games don't contribute much to a price tracker. If a previously paid game becomes free, it will continue to be tracked.
+## Scope
+
+- Built for individual, self-hosted use. You run your own instance with your own MongoDB database and your own Discord bot application.
+- The Discord bot does one thing: it tracks the games you ask it to and pings you on price drops. It doesn't moderate, play music, respond to chat messages, or read message content.
+- Game data (title, URL, prices) is shared and public. Watches (who tracks what) are stored per user and only ever shown to the user who created them.
+
+## Discord Commands
+
+| Command | Options | Description |
+|---------|---------|-------------|
+| `/track` | `id`, `every`, `unit` | Track a game and check its price on a schedule |
+| `/untrack` | `id` | Stop tracking a game |
+| `/watchlist` | `page` (optional) | Show the games you are tracking, five per page |
+
+### `/track <id> <every> <unit>`
+
+Tracks a game and checks its price every `<every>` `<unit>`.
+
+- `id`: the Steam app ID (the number in the store URL, e.g. `store.steampowered.com/app/`**`4078430`**)
+- `every`: how many units to wait between checks (minimum 1)
+- `unit`: `minutes`, `hours`, `days`, `weeks` or `months`
+
+Examples:
+
+```
+/track id:4078430 every:12 unit:hours
+/track id:4078430 every:1 unit:weeks
+```
+
+Notes:
+
+- When you run `/track`, the bot fetches the game's current price as your starting point.
+- Running `/track` again for the same game changes its interval and the channel alerts are posted to. It does not reset your price baseline.
+- Alerts are only sent when the price drops below the last price you were notified about.
+- Intervals in minutes have a minimum (30 by default) to be considerate of Steam's servers.
+
+### `/untrack <id>`
+
+Stops tracking the game. Only your own watch is removed. The game's stored price data is kept.
+
+### `/watchlist [page]`
+
+Shows the games you are tracking, five per page, with each game's title, current price, discount and check interval. `page` defaults to 1.
 
 ## Prerequisites
 
 - Go 1.26.5 (or the version in `go.mod`)
 - A MongoDB instance (local install or a hosted cluster such as MongoDB Atlas)
-- To preload the games document, just open the MongoDB Atlas application and click [Add Data]
+- A Discord application with a bot (see below)
 
 ## Setup
 
 ### 1. MongoDB
 
-The tracker stores its data in the `steam_price_tracker` database, in the `game` and `metadata` collections. MongoDB creates them on first write.
+The bot stores its data in the `steam_price_tracker` database. MongoDB creates the collections on first write:
 
-### 2. Configuration
+| Collection | Contents |
+|------------|----------|
+| `game` | Shared game data: title, URL, current price and price history |
+| `watches` | One document per user per tracked game, with the check interval and last notified price |
+
+### 2. Discord bot
+
+1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and add a bot.
+2. Copy the bot token.
+3. Turn off **Public Bot** (Bot tab) so only you can invite it.
+4. Invite it to your server using an OAuth2 URL with the `bot` and `applications.commands` scopes. The bot needs **View Channel** and **Send Messages** in the channels where you want alerts.
+
+The bot requests no privileged intents.
+
+### 3. Configuration
 
 Copy the example file and fill in your values:
 
@@ -34,127 +90,62 @@ Copy the example file and fill in your values:
 cp .env.example .env
 ```
 
-| Variable         | Description                                          |
-|------------------|------------------------------------------------------|
-| `MONGO_URI`      | Connection string, e.g. `mongodb://localhost:27017`  |
-| `MONGO_USERNAME` | Database user                                        |
-| `MONGO_PASSWORD` | Database password                                    |
+| Variable           | Description                                          |
+|--------------------|------------------------------------------------------|
+| `DISCORD_TOKEN_ID` | Your Discord bot token                               |
+| `MONGO_URI`        | Connection string, e.g. `mongodb://localhost:27017`  |
+| `MONGO_USERNAME`   | Database user                                        |
+| `MONGO_PASSWORD`   | Database password                                    |
 
 The app reads `.env` from the directory you run it in. Real environment variables work too, so a `.env` file is optional.
 
 > Put credentials in the separate username/password variables, not in the URI.
-> `.env` is git-ignored. Don't commit it.
+> `.env` is git-ignored. Never commit it, and never share your bot token.
 
-### 3. Install
+### 4. Install and run
 
 ```bash
 git clone https://github.com/FrostyPqnda/Steam-Price-Tracker
-cd game-price-tracker
+cd Steam-Price-Tracker
 go mod download
+go run .
 ```
 
-### Optional: load sample data
+Running with no `-command` flag starts the bot. Slash commands are registered globally, so they work in every server the bot is in. A new or changed command can take a little while to appear in Discord (restart your client if it doesn't show up).
 
-A full crawl takes many hours. To try the commands right away, import `games.json` into the `game` collection first:
-
-```bash
-mongoimport --uri "<your MONGO_URI>" --db steam_price_tracker --collection game --file games.json
-```
-
-In MongoDB Atlas you can do the same from the UI: open your cluster, choose **Browse Collections**, select (or create) the `game` collection in the `steam_price_tracker` database, then click **Add Data** → **Import JSON or CSV file** and pick `games.json`.
-
-## Usage
-
-```bash
-go run steam_tracker.go -command=<command> [options]
-```
-
-Or build a binary:
-
-```bash
-go build -o tracker steam_tracker.go
-./tracker -command=stats
-```
-
-Flags must come before any other arguments.
-
-### Commands
-
-| Command   | Options                  | Description                                                  |
-|-----------|--------------------------|--------------------------------------------------------------|
-| `crawl`   |                          | Crawl the Steam store and save game data to MongoDB          |
-| `stats`   |                          | Show tracker statistics                                      |
-| `records` | `-page`, `-filter`       | Show paginated game records, with optional filtering         |
-| `deals`   |                          | Show current deals                                           |
-| `lowest`  | `-id=<App ID>`           | Show the lowest price a game has ever had                    |
-| `history` | `-id=<App ID>`           | Show a game's price history as a trend chart                 |
-| `upsert`  | `-id=<App ID>`           | Insert or update a single game from its Steam page           |
-| `help`    |                          | List available commands                                      |
-
-### Filters
-
-The `records` command accepts `-filter` with one or more filters. Combine filters with commas and no spaces. All filters must match.
-
-| Filter             | Matches                                           |
-|--------------------|---------------------------------------------------|
-| `sale`             | Games currently on sale                           |
-| `free`             | Games that are currently free                     |
-| `under:<price>`    | Games priced at or under `<price>` (excludes free)|
-| `over:<price>`     | Games priced at or over `<price>`                 |
-| `discount:<min>`   | Games with at least `<min>`% discount             |
-| `name:<text>`      | Games whose title contains `<text>`               |
-| `prefix:<text>`    | Games whose title starts with `<text>`            |
-
-Name and prefix matching is case-insensitive. Wrap the filter in quotes if a value contains spaces: `-filter="name:dark souls"`.
-
-### Examples
-
-```bash
-go run steam_tracker.go -command=crawl
-go run steam_tracker.go -command=stats
-go run steam_tracker.go -command=records -page=2
-go run steam_tracker.go -command=records -filter=sale
-go run steam_tracker.go -command=records -filter=sale,under:10
-go run steam_tracker.go -command=records -filter=discount:75,under:20
-go run steam_tracker.go -command=records -filter=prefix:half
-go run steam_tracker.go -command=lowest -id=49520
-go run steam_tracker.go -command=history -id=49520
-```
-
-<!-- Add a screenshot of `records` and `history` here:
-![records](docs/records.png) -->
+Keep the process running: the bot checks for due watches once a minute, so it needs to stay online to send alerts.
 
 ## How It Works
 
-`crawl` scrapes the Steam store and saves a price snapshot for each game. On every later check, the previous snapshot is appended to the game's `price_history` and replaced by the new one. Discounts are stored as percentages. Because of this, `lowest` and `history` become useful only after a game has been crawled several times.
+1. `/track` fetches the game from Steam, stores or updates it in the `game` collection, and saves a watch with a `next_check_at` time.
+2. Once a minute, the bot looks for watches whose `next_check_at` has passed.
+3. For each due watch it refreshes the game's price (each game is fetched at most once per check, even if several people track it).
+4. If the price is lower than the last price you were notified about, the bot mentions you in the channel where you ran `/track`.
+5. The watch's next check time is moved forward by its interval.
 
-A full crawl covers tens of thousands of games and takes a while. Please be considerate of Steam's servers, and expect the scraper to need updates if Steam changes its page layout.
+When a game's price changes, the previous price is appended to its `price_history`. Discounts are stored as percentages.
+
+Please be considerate of Steam's servers, and expect the price fetching to need updates if Steam changes its store pages.
 
 ## Logs
 
-Logs are written to `log/tracker.log`, relative to the directory you run the command from. Errors and warnings go to the log file rather than the console, so check it if a command prints nothing or fails unexpectedly.
+Logs are written to `log/tracker.log`, relative to the directory you run the bot from. Errors and warnings go to the log file rather than the console, so check it if something fails unexpectedly.
 
 ```bash
-tail -f log/tracker.log      # follow the log while crawling
+tail -f log/tracker.log
 ```
 
 The log rotates at 50 MB. The last 10 rotated files are kept for 14 days and compressed with gzip. Set `LOG_LEVEL=debug` for more detail:
 
 ```bash
-LOG_LEVEL=debug go run steam_tracker.go -command=crawl
+LOG_LEVEL=debug go run .
 ```
 
 On Windows PowerShell:
 
 ```powershell
-$env:LOG_LEVEL="debug"; go run steam_tracker.go -command=crawl
+$env:LOG_LEVEL="debug"; go run .
 ```
-
-## Roadmap
-
-- [ ] Notifications when a game reaches an all-time low
-- [ ] Notifications on price drops
-- [ ] `-sort` option for `records` (e.g. by discount)
 
 ## Contributing
 
