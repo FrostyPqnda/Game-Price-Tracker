@@ -42,6 +42,7 @@ func HandleWatchlist(app *types.App, s *discordgo.Session, i *discordgo.Interact
 		page = 1
 	}
 
+	// Fetch only the data owned by the user
 	userID := utils.GetUserId(i)
 	filter := bson.M{"user_id": userID}
 	const pageSize = int64(5)
@@ -52,6 +53,8 @@ func HandleWatchlist(app *types.App, s *discordgo.Session, i *discordgo.Interact
 		reply("Couldn't load your watchlist.")
 		return
 	}
+
+	// No game is being tracked. Notify users
 	if total == 0 {
 		reply("You aren't tracking any games. Use `/track` to add one.")
 		return
@@ -63,6 +66,7 @@ func HandleWatchlist(app *types.App, s *discordgo.Session, i *discordgo.Interact
 		return
 	}
 
+	// Pagination 
 	findOpts := options.Find().
 		SetSort(bson.D{{Key: "created_at", Value: 1}}).
 		SetLimit(pageSize).
