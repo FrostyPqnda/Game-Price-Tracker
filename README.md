@@ -1,8 +1,8 @@
-# Steam Price Tracker
+# GameDip
 
-A self-hosted Discord bot that tracks Steam game prices. Tell it which games to watch and how often to check, and it pings you when a price drops. Prices and watches are stored in MongoDB.
+A self-hosted Discord bot that tracks Steam game prices. Tell it which games to watch and how often to check, and it pings you when a price dips. Prices and watches are stored in MongoDB.
 
-> This project is an independent, unofficial Steam price tracker and is not affiliated with or endorsed by Valve Corporation.
+> GameDip is an independent, unofficial Steam price tracker and is not affiliated with or endorsed by Valve Corporation.
 
 ## Features
 
@@ -136,16 +136,6 @@ tail -f log/tracker.log
 ```
 
 The log rotates at 50 MB. The last 10 rotated files are kept for 14 days and compressed with gzip. Set `LOG_LEVEL=debug` for more detail:
-
-```bash
-LOG_LEVEL=debug go run .
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:LOG_LEVEL="debug"; go run .
-```
 
 ## Contributing
 

@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Effective date:** October 15, 2026
+**Effective date:** October 17, 2026
 
-This policy explains what data the Steam Price Tracker Discord bot ("the bot") collects, how it is used, and how you can have it removed. The bot is an independent, unofficial project and is not affiliated with Valve Corporation or Steam.
+This policy explains what data the GameDip Discord bot ("the bot") collects, how it is used, and how you can have it removed. The bot is an independent, unofficial project and is not affiliated with Valve Corporation or Steam.
 
 ## What the bot stores
 

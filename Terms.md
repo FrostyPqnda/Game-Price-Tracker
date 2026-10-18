@@ -1,8 +1,8 @@
 # Terms of Service
 
-**Effective date:** October 15, 2026
+**Effective date:** October 17, 2026
 
-By inviting or using the Steam Price Tracker Discord bot ("the bot"), you agree to these terms. If you don't agree, please don't use the bot.
+By inviting or using the GameDip Discord bot ("the bot"), you agree to these terms. If you don't agree, please don't use the bot.
 
 ## What the bot does
 
@@ -25,10 +25,6 @@ Prices come from Steam's public store and are provided for convenience only. The
 
 The bot is provided on an "as is" and "as available" basis, without warranties of any kind. There is no guarantee that it will be online, that checks will run on time, or that alerts will be delivered. Alerts can fail, for example if the bot lacks permission to post in a channel.
 
-## Limits and removal
-
-The operator may set limits, such as a minimum check interval or a maximum number of tracked games per user. The operator may also remove your data or block you from using the bot at any time, especially if you break these terms.
-
 ## Changes and shutdown
 
 The bot's features and these terms may change at any time, and the bot may be shut down without notice. Changes are recorded in the project's Git history. If you keep using the bot after a change, you accept the updated terms.
@@ -47,4 +43,4 @@ The bot's source code is released under the MIT License (see [LICENSE](LICENSE))
 
 ## Contact
 
-For questions, open an issue at <https://github.com/FrostyPqnda/Steam-Price-Tracker/issues> or contact the operator on Discord at `YOUR_DISCORD_HANDLE`.
+For questions, open an issue at <https://github.com/FrostyPqnda/Steam-Price-Tracker/issues>.
