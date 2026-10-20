@@ -98,3 +98,34 @@ func FetchGame(collection *mongo.Collection, appId int) (types.Game, bool) {
 
 	return game, true
 }
+
+// EnsureIndexes creates the indexes on the watches collection that the bot
+// depends on. It is called once at startup, before the bot starts handling
+// commands.
+//
+// It creates two indexes:
+//   - user_app_track_id: unique on (user_id, app_id). It guarantees one watch
+//     per user per game, even if two /track commands race each other.
+//   - next_check_at: lets the notifier quickly find watches that are due.
+//
+// Calling it again is safe: an index that already exists with the same name
+// and definition is left unchanged. If an index with the same name exists but
+// is defined differently, MongoDB returns an error and the bot stops.
+func EnsureIndexes(watches *mongo.Collection) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	_, err := watches.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "app_id", Value: 1}},
+			Options: options.Index().
+				SetName("user_app_track_id").
+				SetUnique(true),
+		},
+		{
+			Keys:    bson.D{{Key: "next_check_at", Value: 1}},
+			Options: options.Index().SetName("next_check_at"),
+		},
+	})
+	return err
+}

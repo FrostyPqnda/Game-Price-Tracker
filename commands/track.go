@@ -3,7 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
-	"game-price-tracker/myimplementations/database"
+	"game-price-tracker/myimplementations/scraper"
 	"game-price-tracker/myimplementations/types"
 	"game-price-tracker/myimplementations/utils"
 	"log/slog"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
@@ -73,7 +74,7 @@ func HandleTrack(app *types.App, s *discordgo.Session, i *discordgo.InteractionC
 
 	// Insert or refresh the game so the user sees the latest price and the
 	// watch starts from an up-to-date baseline.
-	game, err := database.UpsertGame(app.Games, appID)
+	game, err := scraper.UpsertGame(app.Games, appID)
 	if err != nil {
 		slog.Error("UpsertGame failed", "appId", appID, "error", err)
 		reply("Couldn't fetch that game. Check the app ID and try again.")
@@ -87,28 +88,26 @@ func HandleTrack(app *types.App, s *discordgo.Session, i *discordgo.InteractionC
 	// Create or update this user's watch for this game. The filter
 	// (user_id + app_id) means one watch per user per game.
 	now := time.Now()
-	_, err = app.Watches.UpdateOne(ctx,
-		bson.M{"user_id": userID, "app_id": appID},
-		bson.M{
-			// Runs on every /track, so re-running the command changes the
-			// channel, the interval and the next check time.
-			"$set": bson.M{
-				"channel_id":      i.ChannelID, // where alerts will be posted
-				"interval_amount": amount,
-				"interval_unit":   unit,
-				"next_check_at":   utils.NextCheck(now, amount, unit), // when the notifier picks it up
-			},
-			// Runs only when the watch is first created, so re-tracking
-			// doesn't reset the price baseline or creation time.
-			"$setOnInsert": bson.M{
-				"user_id":             userID,
-				"app_id":              appID,
-				"last_notified_price": game.PriceSnapshot.DiscountPrice,
-				"created_at":          now,
-			},
+	filter := bson.M{"user_id": userID, "app_id": appID}
+	update := bson.M{
+		"$set": bson.M{
+			"channel_id":      i.ChannelID,
+			"interval_amount": amount,
+			"interval_unit":   unit,
+			"next_check_at":   utils.NextCheck(now, amount, unit),
 		},
-		options.UpdateOne().SetUpsert(true), // insert if no matching watch exists
-	)
+		"$setOnInsert": bson.M{
+			"last_notified_price": game.PriceSnapshot.DiscountPrice,
+			"created_at":          now,
+		},
+	}
+	upsertOpts := options.UpdateOne().SetUpsert(true)
+
+	_, err = app.Watches.UpdateOne(ctx, filter, update, upsertOpts)
+	if mongo.IsDuplicateKeyError(err) {
+		// Lost an upsert race with a concurrent /track; the watch exists now.
+		_, err = app.Watches.UpdateOne(ctx, filter, update, upsertOpts)
+	}
 
 	// Saving failed: log the details, show the user a short message.
 	if err != nil {

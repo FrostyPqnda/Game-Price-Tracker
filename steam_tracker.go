@@ -46,8 +46,11 @@ func run() error {
 	db := client.Database("steam_price_tracker")
 	app := &types.App{
 		Games:   db.Collection("game"),
-		State:   db.Collection("metadata"),
 		Watches: db.Collection("watches"),
+	}
+
+	if err := database.EnsureIndexes(app.Watches); err != nil {
+		return fmt.Errorf("could not ensure indexes: %w", err)
 	}
 
 	token := os.Getenv("DISCORD_TOKEN_ID")

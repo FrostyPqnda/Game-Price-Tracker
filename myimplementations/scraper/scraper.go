@@ -1,9 +1,10 @@
-package database
+package scraper
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"game-price-tracker/myimplementations/database"
 	"game-price-tracker/myimplementations/types"
 	"log/slog"
 	"math"
@@ -71,7 +72,7 @@ func UpsertGame(collection *mongo.Collection, appId int) (types.Game, error) {
 	//
 	// If it does not exists, insert into the document
 	// and return the error if there was one.
-	_, ok := FetchGame(collection, appId)
+	_, ok := database.FetchGame(collection, appId)
 
 	slog.Info("UpsertGame completed", "appId", appId)
 

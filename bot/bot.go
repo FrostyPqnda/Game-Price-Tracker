@@ -1,7 +1,8 @@
 package bot
 
 import (
-	command "game-price-tracker/commands"
+	"game-price-tracker/commands"
+	"game-price-tracker/myimplementations/notifier"
 	"game-price-tracker/myimplementations/types"
 	"log"
 	"os"
@@ -14,7 +15,7 @@ import (
 var BotToken string
 
 // A list of available commands for the bot
-var commands = []*discordgo.ApplicationCommand{
+var botCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:        "track",
 		Description: "Tracks a Steam game's price",
@@ -78,9 +79,9 @@ var commands = []*discordgo.ApplicationCommand{
 type handlerFunc func(app *types.App, s *discordgo.Session, i *discordgo.InteractionCreate)
 
 var handlers = map[string]handlerFunc{
-	"track":     command.HandleTrack,
-	"untrack":   command.HandleUntrack,
-	"watchlist": command.HandleWatchlist,
+	"track":     commands.HandleTrack,
+	"untrack":   commands.HandleUntrack,
+	"watchlist": commands.HandleWatchlist,
 }
 
 // Run starts the Discord bot and blocks until the process receives an
@@ -128,7 +129,7 @@ func Run(app *types.App) {
 
 	// Register the commands globally (empty guild ID). This replaces the
 	// whole list, so commands missing from `commands` are removed.
-	registered, err := discord.ApplicationCommandBulkOverwrite(discord.State.User.ID, "", commands)
+	registered, err := discord.ApplicationCommandBulkOverwrite(discord.State.User.ID, "", botCommands)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -138,7 +139,7 @@ func Run(app *types.App) {
 	// only the watches that are due. Closing stop (deferred) ends it.
 	stop := make(chan struct{})
 	defer close(stop)
-	StartNotifier(app, discord, time.Minute, stop)
+	notifier.StartNotifier(app, discord, time.Minute, stop)
 
 	// Block here until Ctrl+C so the bot keeps running.
 	c := make(chan os.Signal, 1)

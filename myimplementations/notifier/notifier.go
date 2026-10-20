@@ -1,4 +1,4 @@
-package bot
+package notifier
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"game-price-tracker/myimplementations/database"
+	"game-price-tracker/myimplementations/scraper"
 	"game-price-tracker/myimplementations/types"
 	"game-price-tracker/myimplementations/utils"
 
@@ -60,7 +60,7 @@ func checkWatches(app *types.App, s *discordgo.Session) {
 	for _, w := range watches {
 		game, ok := refreshed[w.AppId]
 		if !ok {
-			game, err = database.UpsertGame(app.Games, w.AppId)
+			game, err = scraper.UpsertGame(app.Games, w.AppId)
 			if err != nil {
 				slog.Error("refresh failed", "appId", w.AppId, "error", err)
 				continue

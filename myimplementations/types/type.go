@@ -35,7 +35,6 @@ type Game struct {
 // App holds the shared dependencies that commands run against.
 type App struct {
 	Games   *mongo.Collection
-	State   *mongo.Collection
 	Watches *mongo.Collection
 }
 
