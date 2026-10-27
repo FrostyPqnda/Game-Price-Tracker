@@ -47,7 +47,7 @@ Notes:
 - Running `/track` again for the same game changes its interval and the channel alerts are posted to. It does not reset your price baseline.
 - Alerts are only sent when the price drops below the last price you were notified about.
 - Intervals in minutes have a minimum (30 by default) to be considerate of Steam's servers.
-- There is 25 limit cap on the no. of games you can track.
+- There is a limit cap of 25 on the no. of games you can track.
 
 ### `/untrack <id>`
 
@@ -67,7 +67,7 @@ Shows the games you are tracking, five per page, with each game's title, current
 
 1. `/track` fetches the game from Steam, stores or updates it in the `game` collection, and saves a watch with a `next_check_at` time.
 2. Once a minute, the bot looks for watches whose `next_check_at` has passed.
-3. For each due watch it refreshes the game's price (each game is fetched at most once per check, even if several people track it).
+3. For each due watch, it refreshes the game's price (each game is fetched at most once per check, even if several people track it).
 4. If the price is lower than the last price you were notified about, the bot mentions you in the channel where you ran `/track`.
 5. The watch's next check time is moved forward by its interval.
 
