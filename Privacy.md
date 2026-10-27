@@ -53,14 +53,10 @@ Removing the bot from your server stops alerts to that server's channels, but it
 
 Credentials are kept in environment variables and not in the code repository. No system is perfectly secure, so please don't treat the bot as a place to store sensitive information.
 
-## Children
-
-Discord requires users to meet its minimum age requirements. The bot does not knowingly collect data from anyone under that age.
-
 ## Changes to this policy
 
 This policy may be updated from time to time. The effective date above shows the latest version, and changes are recorded in the project's Git history.
 
 ## Contact
 
-For questions or deletion requests, open an issue at <https://github.com/FrostyPqnda/Steam-Price-Tracker/issues> or contact the operator on Discord at `YOUR_DISCORD_HANDLE`.
+For questions or deletion requests, open an issue at <https://github.com/FrostyPqnda/Steam-Price-Tracker/issues>.
