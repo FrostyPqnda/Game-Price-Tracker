@@ -15,6 +15,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+const MAX_WATCH int = 25
+
 // HandleTrack handles the /track slash command. It starts, or reschedules, a
 // price watch for the user who ran the command.
 //
@@ -84,6 +86,18 @@ func HandleTrack(app *types.App, s *discordgo.Session, i *discordgo.InteractionC
 	// Don't let the database call hang forever.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	watchCount, err := app.Watches.CountDocuments(ctx, bson.M{"user_id": userID})
+	if err != nil {
+		slog.Error("Watch lookup failed", "error", err)
+		reply("Something went wrong. Try again in a moment.")
+		return
+	}
+
+	if watchCount >= int64(MAX_WATCH) {
+		reply(fmt.Sprintf("You're tracking the maximum of %d games. Use /untrack to free up a slot.\n", MAX_WATCH))
+		return
+	}
 
 	// Create or update this user's watch for this game. The filter
 	// (user_id + app_id) means one watch per user per game.
