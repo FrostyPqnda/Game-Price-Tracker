@@ -108,6 +108,20 @@ func Run(app *types.App) {
 		log.Fatal(err)
 	}
 
+	status := discordgo.StatusOnline
+	activity := "Tracking Steam prices"
+	if os.Getenv("BOT_MODE") == "Maintenance" {
+		status = discordgo.StatusDoNotDisturb
+		activity = "Under maintenance"
+	}
+	discord.Identify.Presence = discordgo.GatewayStatusUpdate{
+		Status: string(status),
+		Game: discordgo.Activity{
+			Name: activity,
+			Type: discordgo.ActivityTypeGame,
+		},
+	}
+
 	// Route every slash command interaction to its handler by command name.
 	discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// Ignore buttons, autocomplete, modals, etc.
