@@ -1,6 +1,6 @@
 module game-price-tracker
 
-go 1.27.3
+go 1.26.10
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
