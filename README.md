@@ -1,5 +1,7 @@
 # GameDip
 
+![Status: under maintenance](https://img.shields.io/badge/status-under_maintenance-yellow)
+
 A Discord bot that tracks Steam game prices. Tell it which games to watch and how often to check, and it pings you when a price dips. Prices and watches are stored in MongoDB.
 
 > GameDip is an independent, unofficial Steam price tracker and is not affiliated with or endorsed by Valve Corporation.
