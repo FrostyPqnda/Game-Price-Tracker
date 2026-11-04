@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"game-price-tracker/bot"
@@ -14,10 +16,30 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// serveHealth gives Render a port to detect. The bot itself doesn't need it.
+func serveHealth() {
+	port := os.Getenv("PORT") // Render sets this; default is 10000
+	if port == "" {
+		port = "10000"
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	go func() {
+		if err := http.ListenAndServe(":"+port, mux); err != nil {
+			log.Printf("health server stopped: %v", err)
+		}
+	}()
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		slog.Warn("No .env file found, relying on real environment variables", "error", err)
 	}
+
+	serveHealth()
 
 	if err := run(); err != nil {
 		slog.Error("Run failed", "error", err)
