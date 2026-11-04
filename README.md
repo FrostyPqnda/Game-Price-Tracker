@@ -8,6 +8,8 @@ A Discord bot that tracks Steam game prices. Tell it which games to watch and ho
 
 **[Add GameDip to your server](https://discord.com/oauth2/authorize?client_id=1558910291084050553)**
 
+**[Check Bot Status](https://stats.uptimerobot.com/XZRAPl7h4D)**
+
 ## Features
 
 - Track any Steam game by its app ID with `/track`
