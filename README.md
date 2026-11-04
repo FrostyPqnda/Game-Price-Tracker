@@ -1,6 +1,6 @@
 # GameDip
 
-[![Status](https://img.shields.io/badge/status-active-brightgreen)]([https://stats.uptimerobot.com/your-page](https://stats.uptimerobot.com/XZRAPl7h4D))
+![Status](https://img.shields.io/badge/status-active-brightgreen)
 
 A Discord bot that tracks Steam game prices. Tell it which games to watch and how often to check, and it pings you when a price dips. Prices and watches are stored in MongoDB.
 
