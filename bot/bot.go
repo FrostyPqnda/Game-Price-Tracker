@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -158,6 +157,6 @@ func Run(app *types.App) {
 
 	// Block here until Ctrl+C so the bot keeps running.
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt)
 	<-c
 }
