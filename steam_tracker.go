@@ -22,11 +22,13 @@ func serveHealth() {
 	if port == "" {
 		port = "10000"
 	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
 	go func() {
 		if err := http.ListenAndServe(":"+port, mux); err != nil {
 			log.Printf("health server stopped: %v", err)
@@ -39,7 +41,9 @@ func main() {
 		slog.Warn("No .env file found, relying on real environment variables", "error", err)
 	}
 
-	serveHealth()
+	if os.Getenv("RENDER") != "" {
+		serveHealth() // only needed on Render
+	}
 
 	if err := run(); err != nil {
 		slog.Error("Run failed", "error", err)

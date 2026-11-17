@@ -25,7 +25,9 @@ func HandleWatchlist(app *types.App, s *discordgo.Session, i *discordgo.Interact
 	})
 
 	reply := func(msg string) {
-		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg})
+		if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &msg}); err != nil {
+			slog.Error("reply failed", "error", err)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -66,7 +68,7 @@ func HandleWatchlist(app *types.App, s *discordgo.Session, i *discordgo.Interact
 		return
 	}
 
-	// Pagination 
+	// Pagination
 	findOpts := options.Find().
 		SetSort(bson.D{{Key: "created_at", Value: 1}}).
 		SetLimit(pageSize).
@@ -94,10 +96,13 @@ func HandleWatchlist(app *types.App, s *discordgo.Session, i *discordgo.Interact
 			fmt.Fprintf(&b, "• App %d (couldn't load)\n", w.AppId)
 			continue
 		}
-		// <url> stops Discord from expanding a large embed for each link.
-		fmt.Fprintf(&b, "• **%s**: %.2f (%d%% off), every %d %s(s)\n  %s\n",
+
+		loc, _ := time.LoadLocation("America/Chicago")
+
+		fmt.Fprintf(&b, "• **%s**: %.2f (%d%% off), every %d %s(s)\nNext Alert: %s\n%s\n\n",
 			game.Title, game.PriceSnapshot.DiscountPrice, game.PriceSnapshot.Discount,
-			w.IntervalAmount, w.IntervalUnit, game.URL)
+			w.IntervalAmount, w.IntervalUnit,
+			w.NextCheckAt.In(loc).Format("Mon, Jan 2 2006 at 3:04 PM MST"), game.URL)
 	}
 	reply(b.String())
 }
